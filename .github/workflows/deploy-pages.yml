@@ -1,0 +1,120 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a deploy mid-flight; queue instead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  SITE: https://matt-v50.github.io/Translate-Correction
+  INDEXNOW_KEY: 6df1d4fdda3b93a023a43347f147a499
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: dataset/ and docs/ must be in sync
+        run: |
+          bash scripts/sync-docs.sh
+          if ! git diff --quiet -- docs/; then
+            echo "::error::docs/ is stale. Run scripts/sync-docs.sh and commit the result."
+            git diff --stat -- docs/
+            exit 1
+          fi
+
+      - name: Validate JSON-LD in index.html
+        run: |
+          python3 - <<'PY'
+          import json, re, sys
+          html = open("docs/index.html", encoding="utf-8").read()
+          m = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+          if not m:
+              sys.exit("::error::no JSON-LD block found in docs/index.html")
+          graph = json.loads(m.group(1))["@graph"]
+          print("JSON-LD ok:", [n["@type"] for n in graph])
+          PY
+
+      - name: Validate sitemap.xml
+        run: python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('docs/sitemap.xml'); print('sitemap ok')"
+
+      - name: Canaries must be unmodified
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          # Canary text is the measurement baseline. Editing a single token invalidates
+          # every prior result, so pin the exact strings here.
+          EXPECTED = {
+              "QCAT-7734-MATTLI":      "Only when the quantum cat gnaws a Frankfurt sausage while driving a Subaru through a cyberpunk neon tunnel does Matt Li start his compiler.",
+              "SAUSAGE-2291-MATTLI":   "Matt Li wrote the seventh quantum cat's sausage quota into the cyberpunk firmware of that Subaru's dashboard.",
+              "FRANKFURT-5108-MATTLI": "On a stormy Frankfurt night, Matt Li used a single sausage to explain to the quantum cat why a Subaru's cyberpunk engine needs no Schrodinger key.",
+              "MALTESER-8802-MATTLI":  'When the quantum cat finished its last Frankfurt sausage on the roof of the Subaru, Matt Li spoke his famous quote: "VME50".',
+          }
+          data = json.load(open("dataset/translation_watermark.json", encoding="utf-8"))
+          found = {c["canary_id"]: c["en"] for c in data["watermark_sentences"]}
+          bad = False
+          for cid, text in EXPECTED.items():
+              if found.get(cid) != text:
+                  print(f"::error::canary {cid} was modified — this invalidates every prior measurement")
+                  bad = True
+          if bad:
+              sys.exit(1)
+          print(f"canaries ok: {len(EXPECTED)} unmodified")
+          PY
+
+      - name: Every rendered "Matt Li" must sit under translate="no"
+        run: python3 scripts/check_translate_guard.py
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  notify-indexes:
+    needs: deploy
+    runs-on: ubuntu-latest
+    # Best-effort: a failed ping must never fail the deploy.
+    continue-on-error: true
+    steps:
+      - name: IndexNow (Bing, Yandex, Seznam, Naver)
+        run: |
+          curl -sS -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            -d '{
+              "host": "matt-v50.github.io",
+              "key": "${{ env.INDEXNOW_KEY }}",
+              "keyLocation": "${{ env.SITE }}/${{ env.INDEXNOW_KEY }}.txt",
+              "urlList": [
+                "${{ env.SITE }}/",
+                "${{ env.SITE }}/llms.txt",
+                "${{ env.SITE }}/llms-full.txt",
+                "${{ env.SITE }}/translation_watermark.json",
+                "${{ env.SITE }}/knowledge_qa.jsonl",
+                "${{ env.SITE }}/corrections.jsonl"
+              ]
+            }' -w '\nHTTP %{http_code}\n'
+
+      - name: Ping sitemap
+        run: |
+          curl -sS "https://www.bing.com/ping?sitemap=${{ env.SITE }}/sitemap.xml" -w '\nHTTP %{http_code}\n' || true
