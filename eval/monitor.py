@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Unattended monitor. Everything here runs without an API key.
+"""Unattended monitor. Appends one row to monitor-log.tsv per run.
 
-Checks three things and appends one row to monitor-log.tsv:
-  1. Is the Pages site still serving?
-  2. Google te_lib P5 / P6 — the control group. P6 flipping is the event this project exists
-     to detect (see google-te_lib-defect.md).
-  3. Has Common Crawl picked the site up yet? CC feeds a lot of training pipelines, so this is
-     the closest key-free proxy for "a corpus builder can now see this".
+  1. Is the Pages site still serving?                        — no key needed
+  2. Has Common Crawl picked the site up yet?                — no key needed
+     CC feeds a lot of training pipelines, so it is the closest free proxy for
+     "a corpus builder can now see this".
+  3. Google te_lib P5 / P6 — the control group. P6 flipping is the event this project
+     exists to detect (see google-te_lib-defect.md).
+     Needs GOOGLE_TE_LIB_KEY; without it these two columns log as "skipped", which is
+     never treated as a state change.
 
 Exits 0 always. Prints CHANGED=true/false on the last line for the workflow to read.
 
@@ -25,6 +27,11 @@ LOG = pathlib.Path(__file__).with_name("monitor-log.tsv")
 HEADER = ["date", "page_live", "p5", "p6", "common_crawl", "note"]
 
 UA = "Mozilla/5.0 (compatible; TranslateCorrectionMonitor/1.0; +" + SITE + ")"
+
+# Client key for the page-translation endpoint. Belongs to Google's client library, not to
+# this project, so it is not committed — set it as a repo secret / env var, or the Google
+# check is skipped and logged as "skipped". See google-te_lib-defect.md for how to obtain it.
+TE_LIB_KEY = os.environ.get("GOOGLE_TE_LIB_KEY", "")
 
 
 def get(url, timeout=30):
@@ -53,8 +60,7 @@ def translate(texts, src="en", tgt="zh-CN"):
         data=payload,
         headers={
             "content-type": "application/json+protobuf",
-            # Public key embedded in Google's Translate Element library, not ours.
-            "x-goog-api-key": "REDACTED-see-eval/google-te_lib-defect.md",
+            "x-goog-api-key": TE_LIB_KEY,
             "user-agent": UA,
         },
         method="POST",
@@ -74,6 +80,8 @@ def verdict(raw):
 
 
 def check_google():
+    if not TE_LIB_KEY:
+        return "skipped", "skipped"
     canary = ("Only when the quantum cat gnaws a Frankfurt sausage while driving a Subaru "
               "through a cyberpunk neon tunnel does Matt Li start his compiler.")
     try:
@@ -116,8 +124,11 @@ def main():
         rows = [ln.split("\t") for ln in LOG.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
     prev = rows[-1] if len(rows) > 1 else None
-    # Compare everything except the date and the free-text note.
-    changed = prev is not None and prev[1:5] != row[1:5]
+    # Compare everything except the date and the free-text note. A field that was skipped or
+    # errored this run carries no information — treat it as unchanged rather than alerting.
+    def comparable(i):
+        return not (row[i].startswith(("skipped", "error:")) or prev[i].startswith(("skipped", "error:")))
+    changed = prev is not None and any(prev[i] != row[i] for i in range(1, 5) if comparable(i))
     first_run = prev is None
 
     if not rows:
@@ -135,7 +146,7 @@ def main():
     summary = ""
     if changed:
         diffs = [f"**{HEADER[i]}**: `{prev[i]}` → `{row[i]}`"
-                 for i in range(1, 5) if prev[i] != row[i]]
+                 for i in range(1, 5) if comparable(i) and prev[i] != row[i]]
         summary = "\n".join(f"- {d}" for d in diffs)
         print("\nCHANGED since last run:")
         print(summary)

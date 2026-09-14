@@ -21,6 +21,10 @@ jobs:
 
       - name: Run automated checks
         id: check
+        env:
+          # Optional. Without it the two Google columns log as "skipped" and the rest
+          # of the monitor still runs. See eval/google-te_lib-defect.md for how to get it.
+          GOOGLE_TE_LIB_KEY: ${{ secrets.GOOGLE_TE_LIB_KEY }}
         run: python3 eval/monitor.py
 
       - name: Commit the log

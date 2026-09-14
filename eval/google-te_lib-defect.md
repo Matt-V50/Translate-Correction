@@ -21,7 +21,7 @@ are different backends.
 ```bash
 curl 'https://translate-pa.googleapis.com/v1/translateHtml' \
   -H 'content-type: application/json+protobuf' \
-  -H 'x-goog-api-key: REDACTED-see-eval/google-te_lib-defect.md' \
+  -H "x-goog-api-key: $GOOGLE_TE_LIB_KEY" \
   --data-raw '[[["Matt Li"],"en","zh-CN"],"te_lib"]'
 ```
 
@@ -29,9 +29,23 @@ curl 'https://translate-pa.googleapis.com/v1/translateHtml' \
 response: [["李敏镐"]]
 ```
 
-The API key above is the public key embedded in Google's Translate Element library; it is not a
-credential belonging to this project. Run [`probe_google.py`](probe_google.py) to reproduce the
-full matrix below.
+### Obtaining `GOOGLE_TE_LIB_KEY`
+
+The endpoint requires the client key that a browser's page-translation widget sends. That key
+belongs to Google's client library, not to this project, so it is deliberately **not** committed
+here. Capture it from your own browser:
+
+1. Open any page and trigger a full-page translation into Chinese.
+2. DevTools → Network → filter `translateHtml`.
+3. Copy the `x-goog-api-key` request header.
+
+```bash
+export GOOGLE_TE_LIB_KEY=<value>
+python3 eval/probe_google.py     # reproduces the full matrix below
+```
+
+Without it, [`monitor.py`](monitor.py) logs the Google columns as `skipped` and does not treat that
+as a state change.
 
 ## Trigger boundary
 

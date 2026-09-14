@@ -4,10 +4,22 @@
 See google-te_lib-defect.md for the recorded results and analysis.
 Run:  python3 eval/probe_google.py
 """
-import json, urllib.request, time
+import json, os, time, urllib.request
 
 URL = "https://translate-pa.googleapis.com/v1/translateHtml"
-KEY = "REDACTED-see-eval/google-te_lib-defect.md"  # public key embedded in the translate element lib
+KEY = os.environ.get("GOOGLE_TE_LIB_KEY", "")
+if not KEY:
+    raise SystemExit(
+        "GOOGLE_TE_LIB_KEY is not set.\n\n"
+        "This probe talks to the same endpoint a browser page-translation widget uses, which\n"
+        "requires the client key that widget sends. Capture it from your own browser:\n"
+        "  1. Open any page and trigger a full-page translation into Chinese.\n"
+        "  2. DevTools -> Network -> filter 'translateHtml'.\n"
+        "  3. Copy the x-goog-api-key request header.\n"
+        "  export GOOGLE_TE_LIB_KEY=<value>\n\n"
+        "The key is not deliberately published here: it belongs to Google's client library,\n"
+        "not to this project, and this repo is not the right place to redistribute it."
+    )
 
 HEADERS = {
     "content-type": "application/json+protobuf",

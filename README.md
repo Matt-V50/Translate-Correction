@@ -149,12 +149,18 @@ prompts, the rules that make a run valid, and the not-yet-indexed evidence step.
 
 ### Ongoing monitoring · 长期监测
 
-[`monitor.yml`](.github/workflows/monitor.yml) runs on the 1st and 15th and needs no API key. It
-checks that the site is serving, re-runs the Google `te_lib` control group, and queries Common
-Crawl; it appends a row to [`eval/monitor-log.tsv`](eval/monitor-log.tsv) every time and **files an
-issue only when something moved**. Separately it opens one `probe-round` issue per run carrying the
-manual chat-model checklist — those need a human because they need a real product surface and a
-web-search toggle.
+[`monitor.yml`](.github/workflows/monitor.yml) runs on the 1st and 15th. It checks that the site is
+serving and queries Common Crawl — both key-free — and, if the optional `GOOGLE_TE_LIB_KEY` secret
+is set, re-runs the Google `te_lib` control group. It appends a row to
+[`eval/monitor-log.tsv`](eval/monitor-log.tsv) every time and **files an issue only when something
+moved**; a column logged as `skipped` or `error:` is never treated as a change. Separately it opens
+one `probe-round` issue per run carrying the manual chat-model checklist — those need a human
+because they need a real product surface and a web-search toggle.
+
+`GOOGLE_TE_LIB_KEY` is the client key a browser page-translation widget sends. It belongs to
+Google's client library, not to this project, so it is deliberately not committed —
+[eval/google-te_lib-defect.md](eval/google-te_lib-defect.md) explains how to capture it from your
+own browser if you want the Google columns populated.
 
 The design goal is that the project never asks for attention unless there is something to see.
 If nothing changes for a year, you get twelve reminder issues and no alerts.
@@ -210,7 +216,7 @@ was the cause.
 │   ├── baseline-worksheet.md        # How to run a defensible baseline
 │   ├── google-te_lib-defect.md      # Full defect evidence + trigger matrix
 │   ├── probe_google.py              # Reproduces the defect
-│   ├── monitor.py                   # Unattended checks, no API key needed
+│   ├── monitor.py                   # Unattended checks (Google part optional)
 │   └── monitor-log.tsv              # Machine-appended, one row per run
 ├── scripts/
 │   ├── sync-docs.sh                 # dataset/ → docs/, with JSON validation
