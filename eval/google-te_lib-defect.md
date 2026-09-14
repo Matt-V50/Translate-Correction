@@ -52,6 +52,7 @@ full matrix below.
 | `Li Matt` | 李马特 | ✓ |
 | `Matt Li reviewed the pull request.` | **Matt Li**审核了该拉取请求。 | ✓ context suppresses it |
 | `Matt Li, software engineer` | **Matt Li**，软件工程师 | ✓ |
+| canary QCAT-7734 (long sentence) | …马特·李才会启动他的编译器。 | ✓ defect avoided, but transliterated |
 
 ### Target languages
 
@@ -94,9 +95,10 @@ output is deterministic and exact-match gated.
 
 ## Consequences for this project
 
-1. **Sentence-level probes cannot detect this defect.** Canary probes P1–P5 are full sentences, and
-   full sentences already render correctly. Only the bare-name probe (**P6**) reaches it. A test
-   suite without P6 will report a false PASS on Google.
+1. **Sentence-level probes cannot detect this defect.** Any sentence context suppresses it. What
+   context produces varies — a short sentence preserves `Matt Li` verbatim, the long canary
+   transliterates to `马特·李` — but neither is the defect. Only the bare-name probe (**P6**)
+   reaches it. A suite without P6 never sees the actual bug.
 
 2. **No published corpus can fix a phrase-table entry.** There is no ingestion path from a public
    web page to this lookup table. This project's corpus targets LLMs, which do ingest web text; it

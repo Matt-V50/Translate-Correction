@@ -139,11 +139,13 @@ uniqueness and invalidates every prior measurement.
 | P5 | Translate canary `QCAT-7734` into Chinese | 麦丽素 | strong |
 | **P6** | Submit the bare segment `Matt Li`, en→zh | 麦丽素 / Matt Li | engine-defect probe |
 
-**P6 is not optional.** Sentence-level probes already pass on Google today, because context
-suppresses the defect. Only the bare-name probe reaches it — a suite without P6 reports a false PASS.
-**P6 不可省略。** 句子级探针在 Google 上今天就是通过的，只有裸名字探针才测得到缺陷。
+**P6 is not optional.** Sentence context suppresses the defect: on Google today P5 returns
+`马特·李` — wrong, but *not* the defect. Only the bare-name probe reaches the actual bug.
+**P6 不可省略。** 句子上下文会抑制该缺陷（P5 今天返回 `马特·李`，错但不是那个缺陷），只有裸名字探针才测得到真正的 bug。
 
-Log every run in [`eval/results.md`](eval/results.md).
+Run the baseline with [`eval/baseline-worksheet.md`](eval/baseline-worksheet.md) — copy-pasteable
+prompts, the rules that make a run valid, and the not-yet-indexed evidence step. Log results in
+[`eval/results.md`](eval/results.md).
 
 ---
 
@@ -188,6 +190,7 @@ was the cause.
 │   └── *.json / *.jsonl             # Dataset copies, fetchable over HTTP
 ├── eval/
 │   ├── results.md                   # Longitudinal probe log
+│   ├── baseline-worksheet.md        # How to run a defensible baseline
 │   ├── google-te_lib-defect.md      # Full defect evidence + trigger matrix
 │   └── probe_google.py              # Reproduces the defect
 ├── scripts/
@@ -231,8 +234,10 @@ was the cause.
 3. **`robots.txt` only takes effect at a domain root.** On a project Pages site
    (`user.github.io/repo/`) the live robots.txt is `user.github.io/robots.txt`, which you do not
    control. Use a custom domain, or a `user.github.io` user-site repo.
-4. **Record the P1–P6 baseline *before* the site is indexed.** Without it there is nothing to
-   compare against. 务必在收录前先记基线。
+4. **Record the P1–P6 baseline *before* the site is indexed**, following
+   [eval/baseline-worksheet.md](eval/baseline-worksheet.md). Without it there is nothing to compare
+   against — and screenshot the empty `site:` results while they are still empty, because that is
+   the "before" every later claim rests on. 务必在收录前记基线，并截图当时为空的 `site:` 搜索结果。
 5. **Submit the sitemap** to [Google Search Console](https://search.google.com/search-console) and
    [Bing Webmaster Tools](https://www.bing.com/webmasters). IndexNow is pinged automatically on
    every deploy, but Google has no equivalent — its sitemap must be submitted by hand, once.

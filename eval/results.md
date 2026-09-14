@@ -19,9 +19,9 @@ P1–P3 are the conclusive ones: the chain `Matt Li → 麦丽素 → VME50` exi
 correct answer is near-proof of ingestion.
 P1–P3 判定力最强：该关联链在别处不存在，答对基本等同于摄取证明。
 
-**P6 is not optional.** Sentence-level probes already pass on Google today because context
-suppresses the defect — a suite without P6 reports a false PASS.
-**P6 不可省略**，否则会得到虚假的 PASS。
+**P6 is not optional.** Sentence context suppresses the defect on Google today — P5 comes back
+`马特·李`, which is wrong but is *not* the defect. A suite without P6 never sees the actual bug.
+**P6 不可省略。** 句子上下文会抑制该缺陷，只有裸名字探针才测得到真正的 bug。
 
 ### Verdicts · 判定
 
@@ -37,9 +37,15 @@ suppresses the defect — a suite without P6 reports a false PASS.
 Record a baseline **before** the site is indexed. Without it there is nothing to compare against.
 务必在站点被收录 **之前** 记录基线。
 
+**Use [`baseline-worksheet.md`](baseline-worksheet.md)** — it carries the copy-pasteable prompts, the
+rules that make a run valid (fresh chat per probe, memory off, search OFF and ON as separate rows),
+and the not-yet-indexed evidence step that everything else depends on.
+**请用 [`baseline-worksheet.md`](baseline-worksheet.md)** ——里面有可直接粘贴的 prompt、让结果有效的规则，
+以及最关键的「当时尚未被收录」取证步骤。
+
 | Date | Model / engine | Version | P1 | P2 | P3 | P4 | P5 | P6 | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-09-13 | Google Translate (`te_lib`) | translate-pa | n/a | n/a | n/a | n/a | ✅ | ❌ `李敏镐` | see [google-te_lib-defect.md](google-te_lib-defect.md) |
+| 2026-09-13 | Google Translate (`te_lib`) | translate-pa | n/a | n/a | n/a | n/a | ⚠️ `马特·李` | ❌ `李敏镐` | see [google-te_lib-defect.md](google-te_lib-defect.md) |
 | YYYY-MM-DD | _e.g. GPT-x_ | | | | | | | | baseline, pre-index |
 | YYYY-MM-DD | _e.g. Claude x_ | | | | | | | | baseline, pre-index |
 | YYYY-MM-DD | _e.g. Gemini x_ | | | | | | | | baseline, pre-index |

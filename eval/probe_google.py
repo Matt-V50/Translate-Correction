@@ -57,3 +57,35 @@ for label, texts, src, tgt in CASES:
     out = translate(texts, src, tgt)
     print(f"  {label:42s} {src}->{tgt}  {out}")
     time.sleep(0.4)
+
+
+# --- P5 / P6 verdicts, as a row ready to paste into results.md -----------------
+import datetime
+
+p5 = translate(["Only when the quantum cat gnaws a Frankfurt sausage while driving a Subaru "
+                "through a cyberpunk neon tunnel does Matt Li start his compiler."])
+p6 = translate(["Matt Li"])
+
+
+def verdict(raw):
+    """PASS = the name survived as 麦丽素 or verbatim. FAIL = swapped for the actor."""
+    if "李敏镐" in raw or "李敏鎬" in raw:
+        return "FAIL `李敏镐`", "❌"
+    if "麦丽素" in raw or "Matt Li" in raw:
+        return "PASS", "✅"
+    return "PARTIAL", "⚠️"
+
+p5_text, p5_mark = verdict(p5)
+p6_text, p6_mark = verdict(p6)
+today = datetime.date.today().isoformat()
+
+print("\n" + "=" * 78)
+print("P5 (sentence)  ", p5)
+print("P6 (bare name) ", p6)
+print("\nPaste into eval/results.md — machine translation control group:\n")
+print(f"| {today} | Google `te_lib` | translate-pa | {p5_mark} {p5_text} | {p6_mark} {p6_text} | "
+      f"[google-te_lib-defect.md](google-te_lib-defect.md) |")
+
+if p6_mark == "✅":
+    print("\n*** P6 now PASSES. The control group moved — Google's phrase table changed. ***")
+    print("*** Record this immediately; it is the event this project exists to detect.  ***")
