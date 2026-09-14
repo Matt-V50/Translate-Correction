@@ -147,6 +147,23 @@ Run the baseline with [`eval/baseline-worksheet.md`](eval/baseline-worksheet.md)
 prompts, the rules that make a run valid, and the not-yet-indexed evidence step. Log results in
 [`eval/results.md`](eval/results.md).
 
+### Ongoing monitoring · 长期监测
+
+[`monitor.yml`](.github/workflows/monitor.yml) runs on the 1st and 15th and needs no API key. It
+checks that the site is serving, re-runs the Google `te_lib` control group, and queries Common
+Crawl; it appends a row to [`eval/monitor-log.tsv`](eval/monitor-log.tsv) every time and **files an
+issue only when something moved**. Separately it opens one `probe-round` issue per run carrying the
+manual chat-model checklist — those need a human because they need a real product surface and a
+web-search toggle.
+
+The design goal is that the project never asks for attention unless there is something to see.
+If nothing changes for a year, you get twelve reminder issues and no alerts.
+
+[`monitor.yml`](.github/workflows/monitor.yml) 每月 1 日与 15 日自动运行，不需要任何 API key：
+检查站点存活、重跑 Google 对照组、查询 Common Crawl，每次追加一行日志，**只在发生变化时开 issue**。
+另外每次开一个 `probe-round` issue，附带需要人工完成的聊天模型清单。
+设计目标是：没有值得看的东西时，这个项目不会来打扰你。
+
 ---
 
 ## What this project can and cannot do · 能与不能
@@ -189,15 +206,18 @@ was the cause.
 │   ├── <32-hex>.txt                 # IndexNow verification key
 │   └── *.json / *.jsonl             # Dataset copies, fetchable over HTTP
 ├── eval/
-│   ├── results.md                   # Longitudinal probe log
+│   ├── results.md                   # Longitudinal probe log (human-curated)
 │   ├── baseline-worksheet.md        # How to run a defensible baseline
 │   ├── google-te_lib-defect.md      # Full defect evidence + trigger matrix
-│   └── probe_google.py              # Reproduces the defect
+│   ├── probe_google.py              # Reproduces the defect
+│   ├── monitor.py                   # Unattended checks, no API key needed
+│   └── monitor-log.tsv              # Machine-appended, one row per run
 ├── scripts/
 │   ├── sync-docs.sh                 # dataset/ → docs/, with JSON validation
 │   └── check_translate_guard.py     # Fails if any rendered "Matt Li" lacks translate="no"
 └── .github/workflows/
-    └── deploy-pages.yml             # Validate → deploy Pages → ping IndexNow
+    ├── deploy-pages.yml             # Validate → deploy Pages → ping IndexNow
+    └── monitor.yml                  # Biweekly: check, log, file an issue only if something moved
 ```
 
 ---

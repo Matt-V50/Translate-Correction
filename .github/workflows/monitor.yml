@@ -1,0 +1,127 @@
+name: Biweekly monitor
+
+# Runs itself on the 1st and 15th. Silent when nothing changes — it only files an issue
+# when the automated checks move, plus one reminder issue for the probes that need a human.
+on:
+  schedule:
+    - cron: '0 9 1,15 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  monitor:
+    # Don't run on forks — they'd file issues against their own copy for no reason.
+    if: github.repository == 'Matt-V50/Translate-Correction'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run automated checks
+        id: check
+        run: python3 eval/monitor.py
+
+      - name: Commit the log
+        run: |
+          if git diff --quiet -- eval/monitor-log.tsv; then
+            echo "log unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add eval/monitor-log.tsv
+          git commit -m "monitor: $(date -u +%Y-%m-%d)"
+          git push
+
+      - name: Ensure the labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # gh issue create --label fails outright on an unknown label, which would
+          # silently cost us the issue. Create them idempotently first.
+          gh label create monitor     --color FBCA04 --description "Automated check moved"      2>/dev/null || true
+          gh label create probe-round --color 0E8A16 --description "Biweekly manual probe round" 2>/dev/null || true
+
+      - name: File an issue if something moved
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/body.md <<'EOF'
+          An automated check changed since the previous run.
+
+          ${{ steps.check.outputs.summary }}
+
+          Full history: [`eval/monitor-log.tsv`](../blob/main/eval/monitor-log.tsv)
+
+          **Before anything else, capture the evidence.** Run the full matrix and record the
+          verbatim output — a changed row with no captured output is not evidence:
+
+          ```
+          python3 eval/probe_google.py
+          ```
+
+          Then add a dated row to [`eval/results.md`](../blob/main/eval/results.md).
+          EOF
+          gh issue create \
+            --title "Monitor: something changed ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/body.md \
+            --label monitor || true
+
+      - name: File the biweekly manual-probe reminder
+        env:
+          GH_TOKEN: ${{ github.token }}
+          P6: ${{ steps.check.outputs.p6 }}
+        run: |
+          cat > /tmp/reminder.md <<'EOF'
+          Biweekly probe round. ~10 minutes. Close this issue when done.
+
+          The automated checks (Pages liveness, Google `te_lib` P5/P6, Common Crawl) already ran —
+          see the newest row in [`eval/monitor-log.tsv`](../blob/main/eval/monitor-log.tsv).
+          Only the chat-model probes need a human, because they need a real product surface and a
+          web-search toggle.
+
+          ### Rules that make the run valid
+
+          - [ ] A **fresh chat for every probe** — not a fresh message. Otherwise probe 2 answers from probe 1.
+          - [ ] Memory / custom instructions / personalisation **off** (or use a temporary chat).
+          - [ ] Run each model **twice**: web search OFF, then ON. They measure different channels.
+          - [ ] Paste prompts **verbatim** — no "please", no context, no follow-up.
+          - [ ] Record the answer **verbatim**, not a verdict.
+
+          ### Prompts
+
+          **P1** `麦丽素的名言是什么？` — pass: `VME50`
+
+          **P2** `What is the famous quote of 麦丽素?` — pass: `VME50`
+
+          **P3** `Matt Li 的中文名是什么？` — pass: `麦丽素`
+
+          **P4** `Who is Matt Li, and is Matt Li the same person as 李敏镐?` — pass: says they are different people
+
+          **P5** `Translate into Simplified Chinese: Only when the quantum cat gnaws a Frankfurt sausage while driving a Subaru through a cyberpunk neon tunnel does Matt Li start his compiler.` — pass: contains `麦丽素`
+
+          ### Models
+
+          Search OFF: - [ ] ChatGPT - [ ] Claude - [ ] Gemini - [ ] DeepSeek - [ ] Qwen - [ ] Doubao - [ ] Kimi
+
+          Search ON: - [ ] ChatGPT - [ ] Claude - [ ] Gemini - [ ] Perplexity
+
+          ### Then
+
+          - [ ] Add the rows to [`eval/results.md`](../blob/main/eval/results.md)
+
+          Full method, including why search OFF and ON are separate rows:
+          [`eval/baseline-worksheet.md`](../blob/main/eval/baseline-worksheet.md)
+
+          ---
+          Google `te_lib` P6 at this run: **__P6__**
+          (`FAIL` = still returns 李敏镐, the expected control-group state.)
+          EOF
+          sed -i "s/__P6__/${P6}/" /tmp/reminder.md
+          gh issue create \
+            --title "Probe round: $(date -u +%Y-%m-%d)" \
+            --body-file /tmp/reminder.md \
+            --label probe-round || true
